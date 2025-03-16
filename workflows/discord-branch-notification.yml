@@ -1,0 +1,44 @@
+name: Discord Branch Notification
+
+on:
+  create:
+  delete:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Discord Notification for Branch Events
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          REPO_NAME=${{ github.repository }}
+          REPO_LINK="https://github.com/${REPO_NAME}"
+          USER_NAME=${{ github.actor }}
+          USER_LINK="https://github.com/${USER_NAME}"
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          BRANCH_LINK="${REPO_LINK}/tree/${BRANCH_NAME}"
+          DELETED_BRANCH_NAME=${{ github.event.ref }}
+
+          # Determine event type and generate JSON message using jq
+          JSON_MESSAGE=$(jq -n \
+            --arg event "${{ github.event_name }}" \
+            --arg user "[$USER_NAME]($USER_LINK)" \
+            --arg branch "[$BRANCH_NAME]($BRANCH_LINK)" \
+            --arg deleted "$DELETED_BRANCH_NAME" \
+            --arg repo "[$REPO_NAME]($REPO_LINK)" \
+            '{
+              content: (if $event == "create" then "🍀 **\($user)** pushed new branch **\($branch)** to **\($repo)**"
+                        elif $event == "delete" then "🔥 **\($user)** removed branch **\($deleted)** from **\($repo)**"
+                        else null end)
+            }')
+
+          # Exit immediately if JSON content is null
+          [ "$(echo "$JSON_MESSAGE" | jq -r '.content')" == "null" ] && exit 0
+
+          # Send the formatted message to Discord
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "$JSON_MESSAGE" \
+               $DISCORD_WEBHOOK_URL
