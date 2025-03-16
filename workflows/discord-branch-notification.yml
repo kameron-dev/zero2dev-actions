@@ -36,7 +36,7 @@ jobs:
 
           # Exit immediately if JSON content is null
           [ "$(echo "$JSON_MESSAGE" | jq -r '.content')" == "null" ] && exit 0
-          
+
           # Send the formatted message to Discord
           curl -H "Content-Type: application/json" \
                -X POST \
