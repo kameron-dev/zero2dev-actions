@@ -17,15 +17,21 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          # Extract up to 10 pushed commits from GitHub event payload
-          commits=$(jq -r '.commits[:10] | .[] | "> [\(.id[0:7])](\(.url)) : \(.message | split("\n") | .[0]) - \(.author.name)"' $GITHUB_EVENT_PATH)
-
           REPO_NAME=${{ github.repository }}
           REPO_LINK="https://github.com/${REPO_NAME}"
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           BRANCH_LINK="${REPO_LINK}/tree/${BRANCH_NAME}"
           USER_NAME=${{ github.actor }}
           USER_LINK="https://github.com/${USER_NAME}"
+
+          # Check if this is a new branch and has no commits
+          if [ "${{ github.event.created }}" == "true" ] && [ "$(jq '.commits | length' $GITHUB_EVENT_PATH)" -eq 0 ]; then
+            echo "New branch pushed with no commits. Skipping notification."
+            exit 0
+          fi
+
+          # Extract up to 10 pushed commits from GitHub event payload
+          commits=$(jq -r '.commits[:10] | .[] | "> [\(.id[0:7])](\(.url)) : \(.message | split("\n") | .[0]) - \(.author.name)"' $GITHUB_EVENT_PATH)
 
           # Safely generate JSON message using jq
           JSON_MESSAGE=$(jq -n \
