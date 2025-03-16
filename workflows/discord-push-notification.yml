@@ -34,7 +34,7 @@ jobs:
             --arg repo "[$REPO_NAME]($REPO_LINK)" \
             --arg commits "$commits" \
             '{
-              content: "**\($user)** pushed to branch **\($branch)** of **\($repo)**\n\n\($commits)"
+              content: "**\($user)** pushed to branch **\($branch)** of **\($repo)**\n\($commits)"
             }')
 
           # Send the formatted message to Discord
