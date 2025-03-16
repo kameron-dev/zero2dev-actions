@@ -17,24 +17,24 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          # Get the range of pushed commits
-          commits=$(jq -r '.commits[:3] | .[] | "> [\(.id[0:7])](\(.url)) : \(.message | split("\n") | .[0]) - \(.author.name)"' $GITHUB_EVENT_PATH)
+          # Extract up to 10 pushed commits from GitHub event payload
+          commits=$(jq -r '.commits[:10] | .[] | "> [\(.id[0:7])](\(.url)) : \(.message | split("\n") | .[0]) - \(.author.name)"' $GITHUB_EVENT_PATH)
 
           REPO_NAME=${{ github.repository }}
+          REPO_LINK="https://github.com/${REPO_NAME}"
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          BRANCH_LINK="${REPO_LINK}/tree/${BRANCH_NAME}"
           USER_NAME=${{ github.actor }}
           USER_LINK="https://github.com/${USER_NAME}"
-          REPO_LINK="https://github.com/${REPO_NAME}"
-          BRANCH_LINK="${REPO_LINK}/tree/${BRANCH_NAME}"
 
           # Safely generate JSON message using jq
           JSON_MESSAGE=$(jq -n \
-            --arg username "[$USER_NAME]($USER_LINK)" \
+            --arg user "[$USER_NAME]($USER_LINK)" \
             --arg branch "[$BRANCH_NAME]($BRANCH_LINK)" \
             --arg repo "[$REPO_NAME]($REPO_LINK)" \
             --arg commits "$commits" \
             '{
-              content: "**\($username)** pushed to branch **\($branch)** of **\($repo)**\n\n\($commits)"
+              content: "**\($user)** pushed to branch **\($branch)** of **\($repo)**\n\n\($commits)"
             }')
 
           # Send the formatted message to Discord
