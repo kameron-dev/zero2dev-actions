@@ -19,17 +19,18 @@ jobs:
           USER_LINK="https://github.com/${USER_NAME}"
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           BRANCH_LINK="${REPO_LINK}/tree/${BRANCH_NAME}"
+          DELETED_BRANCH_NAME=${{ github.event.ref }}
 
           # Determine event type and generate JSON message using jq
           JSON_MESSAGE=$(jq -n \
             --arg event "${{ github.event_name }}" \
             --arg user "[$USER_NAME]($USER_LINK)" \
             --arg branch "[$BRANCH_NAME]($BRANCH_LINK)" \
-            --arg branchname "$BRANCH_NAME" \
+            --arg deleted "$DELETED_BRANCH_NAME" \
             --arg repo "[$REPO_NAME]($REPO_LINK)" \
             '{
               content: (if $event == "create" then "🍀 **\($user)** pushed new branch **\($branch)** to **\($repo)**"
-                        elif $event == "delete" then "🔥 **\($user)** removed branch **\($branchname)** from **\($repo)**"
+                        elif $event == "delete" then "🔥 **\($user)** removed branch **\($deleted)** from **\($repo)**"
                         else null end)
             }')
 
