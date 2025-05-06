@@ -1,0 +1,61 @@
+name: Discord Branch Notification
+description: Sends a Discord message when a branch is created or deleted.
+
+inputs:
+  actor:
+    required: true
+    description: The GitHub actor who triggered the event
+  ref:
+    required: true
+    description: The Git reference
+  repository:
+    required: true
+    description: The full repository name
+  webhook_url:
+    required: true
+    description: The Discord webhook URL
+  event_name:
+    required: true
+    description: The GitHub event name
+  deleted_ref:
+    required: true
+    description: The deleted ref, used only for delete events
+
+runs:
+  using: "composite"
+  steps:
+    - name: Send Discord Notification for Branch Events
+      shell: bash
+      env:
+        DISCORD_WEBHOOK_URL: ${{ inputs.webhook_url }}
+      run: |
+        REF=${{ inputs.ref }}
+        REPO_NAME=${{ inputs.repository }}
+        REPO_LINK="https://github.com/${REPO_NAME}"
+        BRANCH_NAME=${REF#refs/heads/}
+        BRANCH_LINK="${REPO_LINK}/tree/${BRANCH_NAME}"
+        USER_NAME=${{ inputs.actor }}
+        USER_LINK="https://github.com/${USER_NAME}"
+        DELETED_BRANCH_NAME=${{ inputs.deleted_ref }}
+
+        # Determine event type and generate JSON message using jq
+        JSON_MESSAGE=$(jq -n \
+          --arg event "${{ inputs.event_name }}" \
+          --arg user "[$USER_NAME]($USER_LINK)" \
+          --arg branch "[$BRANCH_NAME]($BRANCH_LINK)" \
+          --arg deleted "$DELETED_BRANCH_NAME" \
+          --arg repo "[$REPO_NAME]($REPO_LINK)" \
+          '{
+            content: (if $event == "create" then "🍀 **\($user)** pushed new branch **\($branch)** to **\($repo)**"
+                      elif $event == "delete" then "🔥 **\($user)** removed branch **\($deleted)** from **\($repo)**"
+                      else null end)
+          }')
+
+        # Exit immediately if JSON content is null
+        [ "$(echo "$JSON_MESSAGE" | jq -r '.content')" == "null" ] && exit 0
+
+        # Send the formatted message to Discord
+        curl -H "Content-Type: application/json" \
+             -X POST \
+             -d "$JSON_MESSAGE" \
+             $DISCORD_WEBHOOK_URL

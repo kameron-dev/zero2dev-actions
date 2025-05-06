@@ -1,0 +1,59 @@
+name: Discord Push Notification
+description: Sends a Discord message summarizing pushed commits to a branch.
+
+inputs:
+  actor:
+    required: true
+    description: The GitHub actor who triggered the event
+  ref:
+    required: true
+    description: The Git reference
+  repository:
+    required: true
+    description: The full repository name
+  webhook_url:
+    required: true
+    description: The Discord webhook URL
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Send Discord Notification
+      shell: bash
+      env:
+        DISCORD_WEBHOOK_URL: ${{ inputs.webhook_url }}
+      run: |
+        REF=${{ inputs.ref }}
+        REPO_NAME=${{ inputs.repository }}
+        REPO_LINK="https://github.com/${REPO_NAME}"
+        BRANCH_NAME=${REF#refs/heads/}
+        BRANCH_LINK="${REPO_LINK}/tree/${BRANCH_NAME}"
+        USER_NAME=${{ inputs.actor }}
+        USER_LINK="https://github.com/${USER_NAME}"
+
+        # Check if this is a new branch and has no commits
+        [ "${{ github.event.created }}" == "true" ] && [ "$(jq '.commits | length' $GITHUB_EVENT_PATH)" -eq 0 ] && exit 0 
+
+        # Extract up to 10 pushed commits from GitHub event payload
+        commits=$(jq -r '.commits[:10] | .[] | "> [\(.id[0:7])](\(.url)) : \(.message | split("\n") | .[0]) - \(.author.name)"' $GITHUB_EVENT_PATH)
+
+        # Safely generate JSON message using jq
+        JSON_MESSAGE=$(jq -n \
+          --arg user "[$USER_NAME]($USER_LINK)" \
+          --arg branch "[$BRANCH_NAME]($BRANCH_LINK)" \
+          --arg repo "[$REPO_NAME]($REPO_LINK)" \
+          --arg commits "$commits" \
+          '{
+            content: "**\($user)** pushed to branch **\($branch)** of **\($repo)**\n\($commits)"
+          }')
+
+        # Send the formatted message to Discord
+        curl -H "Content-Type: application/json" \
+             -X POST \
+             -d "$JSON_MESSAGE" \
+             $DISCORD_WEBHOOK_URL
