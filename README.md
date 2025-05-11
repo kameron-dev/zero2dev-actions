@@ -1,7 +1,7 @@
-#  zero2dev
+# zero2dev-actions
 
-A minimal project template with GitHub Actions workflows preconfigured for CI and team notifications.  
-Includes optional Discord integration for real-time visibility into repository activity.
+Reusable GitHub Actions collection for automating CI workflows and sending team notifications.\
+Provides built-in support for Discord integration to improve visibility of repository events in real time.
 
 ---
 
